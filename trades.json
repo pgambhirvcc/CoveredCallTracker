@@ -1,0 +1,24 @@
+[
+  {
+    "id": 1764834103764,
+    "type": "CSP",
+    "ticker": "NVDA",
+    "strike": 177.5,
+    "lots": 1,
+    "premium": 1.22,
+    "collateral": 17750,
+    "date": "2025-12-05",
+    "latestPL": 122
+  },
+  {
+    "id": 1764834528474,
+    "type": "CSP",
+    "ticker": "SOFI",
+    "strike": 28.5,
+    "lots": 1,
+    "premium": 0.25,
+    "collateral": 2850,
+    "date": "2025-12-05",
+    "latestPL": 25
+  }
+]
