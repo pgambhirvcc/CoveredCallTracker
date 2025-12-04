@@ -1,33 +1,34 @@
-// index.js
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import YahooFinance from "yahoo-finance2";
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Serve static frontend
-app.use(express.static("public"));
 
-// CORS (for testing, optional if frontend served via same server)
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  next();
+// Serve static files (if any)
+app.use(express.static('public'));
+
+// Route to serve HTML
+app.get("/", (req, res) => {
+  res.sendFile(path.join('public', "index.html"));
 });
 
-// Endpoint to fetch price
+// API to fetch stock price
 app.get("/api/price/:ticker", async (req, res) => {
-  const { ticker } = req.params;
+  const ticker = req.params.ticker.toUpperCase();
   try {
-    const yahoo = new YahooFinance();
-    const quote = await yahoo.quote(ticker);
-    // Send only the price
-    res.json({ price: quote.regularMarketPrice });
+    const yahooFinance = new YahooFinance();
+    const quote = await yahooFinance.quote(ticker);
+    res.json({ quoteResponse: { result: [quote] } });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch Yahoo price" });
+    console.error("Yahoo Finance API error:", err.message);
+    res.status(500).json({ error: "Failed to fetch price" });
   }
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
