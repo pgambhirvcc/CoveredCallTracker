@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wheel Strategy Tracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-light p-4">
+    <div class="container">
+        <h1 class="text-center mb-4">Wheel Strategy Tracker</h1>
+
+        <!-- Form -->
+        <div class="card p-3 mb-4">
+            <h4>Add Trade</h4>
+            <form id="tradeForm">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Type (CC or CSP)</label>
+                        <select id="type" class="form-select" required>
+                            <option value="CSP">Cash Secured Put</option>
+                            <option value="CC">Covered Call</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Ticker</label>
+                        <input id="ticker" class="form-control" required />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Strike Price ($)</label>
+                        <input type="number" id="strike" class="form-control" step="0.01" required />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Lots (1 lot = 100 shares)</label>
+                        <input type="number" id="lots" class="form-control" required />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Premium ($)</label>
+                        <input type="number" id="premium" class="form-control" step="0.01" required />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Date</label>
+                        <input type="date" id="date" class="form-control" required />
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button class="btn btn-primary w-100">Add</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Summary -->
+        <div class="card p-3 mb-4">
+            <h4>Summary</h4>
+            <p><strong>Total Premium Earned:</strong> $<span id="totalPremium">0</span></p>
+            <p><strong>Total Investment Required:</strong> $<span id="totalInvestment">0</span></p>
+            <p><strong>Annualized Return:</strong> <span id="annualizedReturn">0%</span></p>
+        </div>
+
+        <!-- Profit Summary Section -->
+        <div class="card p-3 mb-4">
+            <h4>Profit Summary</h4>
+            <p><strong>Covered Call Profit:</strong> $<span id="ccProfit">0</span></p>
+            <p><strong>Cash Secured Put Profit:</strong> $<span id="cspProfit">0</span></p>
+            <p><strong>Total Profit:</strong> $<span id="totalProfit">0</span></p>
+        </div>
+
+        <!-- Pie Chart Section -->
+        <div class="card p-3 mb-4">
+            <h4>Profit Contribution by Stock</h4>
+            <canvas width="400" id="profitPieChart"></canvas>
+        </div>
+
+        <!-- Table -->
+        <div class="card p-3 mb-4">
+            <h4>Trade History</h4>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Ticker</th>
+                        <th>Premium</th>
+                        <th>Strike</th>
+                        <th>Lots</th>
+                        <th>Investment</th>
+                        <th>Live Price</th>
+                        <th>ITM?</th>
+                        <th>P/L</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="tradeTable"></tbody>
+            </table>
+        </div>
+
+        <!-- Charts -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card p-3 mb-4">
+                    <h5>Premium Over Time</h5>
+                    <canvas id="premiumChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card p-3 mb-4">
+                    <h5>Investment Over Time</h5>
+                    <canvas id="investmentChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let trades = JSON.parse(localStorage.getItem("wheelTrades") || "[]");
+        const form = document.getElementById("tradeForm");
+        const table = document.getElementById("tradeTable");
+
+        function saveTrades() {
+            localStorage.setItem("wheelTrades", JSON.stringify(trades));
+        }
+
+        function renderTable() {
+            table.innerHTML = trades.map((t, idx) => `
+        <tr data-idx="${idx}">
+          <td>${t.type}</td>
+          <td>${t.ticker}</td>
+          <td>$${Number(t.premium).toFixed(2)}</td>
+          <td>$${Number(t.strike).toFixed(2)}</td>
+          <td>${t.lots}</td>
+          <td>$${Number(t.collateral).toFixed(2)}</td>
+          <td class="live">-</td>
+          <td class="itm">-</td>
+          <td class="pl">-</td>
+          <td>${t.date}</td>
+        </tr>`).join('');
+        }
+
+        function updateSummary() {
+            const totalPremium = trades.reduce((s, t) => s + Number(t.premium) * 100 * t.lots, 0);
+            const totalInvestment = trades.reduce((s, t) => s + Number(t.collateral), 0);
+            const annualized = totalInvestment ? ((totalPremium / totalInvestment) * 100).toFixed(2) : 0;
+            document.getElementById("totalPremium").textContent = totalPremium.toFixed(2);
+            document.getElementById("totalInvestment").textContent = totalInvestment.toFixed(2);
+            document.getElementById("annualizedReturn").textContent = annualized + "%";
+        }
+
+        let profitPieChart;
+
+        function updateProfitSummary() {
+            let ccProfit = 0, cspProfit = 0;
+
+            trades.forEach(t => {
+                const row = document.querySelector(`#tradeTable tr[data-idx="${trades.indexOf(t)}"]`);
+                const pl = row ? parseFloat(row.querySelector('.pl').textContent) || 0 : 0;
+                if (t.type === "CC") ccProfit += pl;
+                else cspProfit += pl;
+            });
+
+            document.getElementById("ccProfit").textContent = ccProfit.toFixed(2);
+            document.getElementById("cspProfit").textContent = cspProfit.toFixed(2);
+            document.getElementById("totalProfit").textContent = (ccProfit + cspProfit).toFixed(2);
+
+            renderProfitPieChart();
+        }
+
+        function renderProfitPieChart() {
+            const profitByTicker = {};
+
+            trades.forEach((t, idx) => {
+                const row = document.querySelector(`#tradeTable tr[data-idx="${idx}"]`);
+                const pl = row ? parseFloat(row.querySelector('.pl').textContent) || 0 : 0;
+                if (!profitByTicker[t.ticker]) profitByTicker[t.ticker] = 0;
+                profitByTicker[t.ticker] += pl;
+            });
+
+            const labels = Object.keys(profitByTicker);
+            const data = Object.values(profitByTicker);
+
+            if (profitPieChart) profitPieChart.destroy();
+
+            const ctx = document.getElementById("profitPieChart").getContext("2d");
+            profitPieChart = new Chart(ctx, {
+                type: "pie",
+                data: { labels, datasets: [{ data, backgroundColor: labels.map(() => `hsl(${Math.random() * 360},70%,60%)`) }] }
+            });
+        }
+
+        // Charts
+        let premiumChart, investmentChart;
+        function renderCharts() {
+            const labels = trades.map(t => t.date || "-");
+            const premiums = trades.map(t => Number(t.premium) * 100 * t.lots);
+            const investments = trades.map(t => Number(t.collateral));
+            if (premiumChart) premiumChart.destroy();
+            if (investmentChart) investmentChart.destroy();
+
+            premiumChart = new Chart(document.getElementById("premiumChart"), {
+                type: "line",
+                data: { labels, datasets: [{ label: "Premium", data: premiums }] }
+            });
+
+            investmentChart = new Chart(document.getElementById("investmentChart"), {
+                type: "line",
+                data: { labels, datasets: [{ label: "Investment", data: investments }] }
+            });
+        }
+
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const strikeVal = Number(document.getElementById("strike").value);
+            const lotsVal = Number(document.getElementById("lots").value) || 0;
+            const collateralCalc = strikeVal * 100 * lotsVal;
+
+            const trade = {
+                type: document.getElementById("type").value,
+                ticker: document.getElementById("ticker").value.toUpperCase(),
+                strike: strikeVal,
+                lots: lotsVal,
+                premium: Number(document.getElementById("premium").value),
+                collateral: collateralCalc,
+                date: document.getElementById("date").value
+            };
+
+            trades.push(trade);
+            saveTrades();
+            renderTable();
+            updateSummary();
+            renderCharts();
+            updateLivePrices(); // this will also call updateProfitSummary
+            form.reset();
+        });
+        async function fetchYahooPrice(ticker) {
+            try {
+                const res = await fetch(`/api/price/${ticker}`);
+                const data = await res.json();
+                return data.price ?? null;
+            } catch (err) {
+                console.error("Proxy fetch error:", err);
+                return null;
+            }
+        }
+
+        // Call updateProfitSummary every time P/L changes
+        async function updateLivePrices() {
+            const rows = Array.from(document.querySelectorAll('#tradeTable tr'));
+            for (let i = 0; i < trades.length; i++) {
+                const t = trades[i];
+                const row = rows[i];
+                if (!row) continue;
+
+                const live = await fetchYahooPrice(t.ticker);
+                let itm = "-", pl = 0;
+
+                if (live !== null) {
+                    if (t.type === "CSP") {
+                        itm = live < t.strike ? "YES" : "NO";
+                        const intrinsic = Math.max(0, t.strike - live) * 100 * t.lots;
+                        pl = (t.premium * 100 * t.lots) - intrinsic;
+                    } else {
+                        itm = live > t.strike ? "YES" : "NO";
+                        const intrinsic = Math.max(0, live - t.strike) * 100 * t.lots;
+                        pl = (t.premium * 100 * t.lots) - intrinsic;
+                    }
+                    row.querySelector('.live').textContent = '$' + live.toFixed(2);
+                    row.querySelector('.itm').textContent = itm;
+                    row.querySelector('.pl').textContent = pl.toFixed(2);
+                } else {
+                    row.querySelector('.live').textContent = 'N/A';
+                    row.querySelector('.itm').textContent = '-';
+                    row.querySelector('.pl').textContent = '-';
+                }
+            }
+
+            updateProfitSummary();
+        }
+        // Initial load
+        renderTable();
+        updateSummary();
+        renderCharts();
+        updateLivePrices();
+        setInterval(updateLivePrices, 60000);
+    </script>
+</body>
+
+</html>
