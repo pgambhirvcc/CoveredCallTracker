@@ -7,29 +7,34 @@
   <title>Wheel Strategy Tracker</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <style>
-    .pl-positive {
-      color: green;
-      font-weight: bold;
-    }
-
-    .pl-negative {
-      color: red;
-      font-weight: bold;
-    }
+    body { background-color: #f5f6fa; font-family: 'Segoe UI', sans-serif; color: #333; }
+    h1 { font-weight: 600; }
+    .summary-box { border-radius: 12px; padding: 15px; color: #333; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .section-title { margin-top:30px; margin-bottom:15px; font-weight:600; color:#555; }
+    table { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03); }
+    thead { background:#e9ecef; font-weight:600; }
+    th, td { vertical-align: middle !important; }
+    .pl-positive { color:#28a745; font-weight:600; }
+    .pl-negative { color:#dc3545; font-weight:600; }
+    .stock-positive { color:#0d6efd; font-weight:600; }
+    .stock-negative { color:#fd7e14; font-weight:600; }
+    .btn-primary { background-color:#007bff; border:none; }
+    .btn-primary:hover { background-color:#0069d9; }
+    input, select { border-radius:6px; }
   </style>
 </head>
 
-<body class="bg-light p-4">
+<body class="p-4">
   <div class="container">
     <h1 class="text-center mb-4">Wheel Strategy Tracker</h1>
 
     <!-- Add Trade Form -->
-    <div class="card p-3 mb-4">
+    <div class="card p-3 mb-4 shadow-sm">
       <h4>Add Trade</h4>
       <form id="tradeForm">
         <div class="row g-3">
           <div class="col-md-3">
-            <label class="form-label">Type (CC or CSP)</label>
+            <label class="form-label">Type</label>
             <select id="type" class="form-select" required>
               <option value="CSP">Cash Secured Put</option>
               <option value="CC">Covered Call</option>
@@ -40,11 +45,11 @@
             <input id="ticker" class="form-control" required />
           </div>
           <div class="col-md-3">
-            <label class="form-label">Strike Price ($)</label>
-            <input type="number" id="strike" class="form-control" step="0.01" required />
+            <label class="form-label">Strike ($)</label>
+            <input type="number" id="strike" class="form-control" required />
           </div>
           <div class="col-md-3">
-            <label class="form-label">Lots (1 lot = 100 shares)</label>
+            <label class="form-label">Lots</label>
             <input type="number" id="lots" class="form-control" required />
           </div>
           <div class="col-md-3">
@@ -52,111 +57,154 @@
             <input type="number" id="premium" class="form-control" step="0.01" required />
           </div>
           <div class="col-md-3">
-            <label class="form-label">Date</label>
+            <label class="form-label">Expiry Date</label>
             <input type="date" id="date" class="form-control" required />
           </div>
           <div class="col-md-3 d-flex align-items-end">
-            <button class="btn btn-primary w-100" type="submit">Add</button>
+            <button class="btn btn-primary w-100" type="submit">Add Trade</button>
           </div>
         </div>
       </form>
     </div>
 
-    <!-- Summary Section -->
-    <div class="card p-3 mb-4">
-      <h4>Summary</h4>
-      <p><strong>Total Premium Earned:</strong> $<span id="totalPremium">0</span></p>
-      <p><strong>Total Investment Required:</strong> $<span id="totalInvestment">0</span></p>
-      <p><strong>Annualized Return:</strong> <span id="annualizedReturn">0%</span></p>
-      <p><strong>Overall Profit (CC + CSP):</strong> $<span id="overallProfit">0</span></p>
+    <!-- Current Holdings Form -->
+    <div class="card p-3 mb-4 shadow-sm">
+      <h4>Current Portfolio (Manual Entry)</h4>
+      <form id="holdingForm" class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Ticker</label>
+          <input id="holdingTicker" class="form-control" required />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Entry Price ($)</label>
+          <input type="number" id="holdingEntry" class="form-control" step="0.01" required />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Quantity</label>
+          <input type="number" id="holdingLots" class="form-control" required />
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <button class="btn btn-primary w-100" type="submit">Add Holding</button>
+        </div>
+      </form>
     </div>
 
-    <!-- Refresh Button -->
-    <div class="mb-3 text-end">
-      <button id="refreshBtn" class="btn btn-success">Refresh Prices</button>
+    <!-- Summary Boxes -->
+    <div class="row text-center mb-4 g-3">
+      <div class="col-md-4 summary-box">
+        <h6>Total Premium Profit</h6>
+        <span id="totalPremium" class="fs-5">$0</span>
+      </div>
+      <div class="col-md-4 summary-box">
+        <h6>Total Stock Appreciation</h6>
+        <span id="totalStock" class="fs-5">$0</span>
+      </div>
+      <div class="col-md-4 summary-box">
+        <h6>Overall Profit</h6>
+        <span id="overallProfit" class="fs-5">$0</span>
+      </div>
     </div>
 
-    <!-- Trade History Table -->
-    <div class="card p-3 mb-4">
-      <h4>Trade History</h4>
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Ticker</th>
-            <th>Premium</th>
-            <th>Strike</th>
-            <th>Lots</th>
-            <th>Investment</th>
-            <th>Live Price</th>
-            <th>ITM?</th>
-            <th>P/L</th>
-            <th>Date</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="tradeTable"></tbody>
-      </table>
-    </div>
+    <!-- Current Positions -->
+    <h4 class="section-title">Current Positions (Not Expired)</h4>
+    <table class="table table-striped shadow-sm mb-4">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Ticker</th>
+          <th>Strike</th>
+          <th>Lots</th>
+          <th>Premium</th>
+          <th>Collateral</th>
+          <th>Live Price</th>
+          <th>ITM?</th>
+          <th>Unrealized P/L</th>
+        </tr>
+      </thead>
+      <tbody id="currentPositions"></tbody>
+    </table>
+
+    <!-- Current Portfolio Table (Manual) -->
+    <h4 class="section-title">Current Holdings (Manual)</h4>
+    <table class="table table-striped shadow-sm mb-4">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Entry Price</th>
+          <th>Quantity</th>
+          <th>Current Price</th>
+          <th>Unrealized P/L</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="manualPortfolio"></tbody>
+    </table>
+
+    <!-- Trade History -->
+    <h4 class="section-title">Trade History (Expired)</h4>
+    <table class="table table-striped shadow-sm mb-4">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Ticker</th>
+          <th>Strike</th>
+          <th>Lots</th>
+          <th>Premium Profit</th>
+          <th>Stock Profit</th>
+          <th>Total Profit</th>
+          <th>Expiry Date</th>
+        </tr>
+      </thead>
+      <tbody id="tradeHistory"></tbody>
+    </table>
+
+    <!-- Accumulation Table -->
+    <h4 class="section-title">Accumulated Profit by Ticker</h4>
+    <table class="table table-bordered shadow-sm mb-4">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Total Premium Profit</th>
+          <th>Total Stock Profit</th>
+          <th>Total Accumulated Profit</th>
+        </tr>
+      </thead>
+      <tbody id="tickerProfitTable"></tbody>
+    </table>
+
   </div>
 
   <script>
-    let trades = [];
-    const table = document.getElementById("tradeTable");
-    const refreshBtn = document.getElementById("refreshBtn");
-    const form = document.getElementById("tradeForm");
+    let trades = [], manualHoldings = [];
 
-    async function loadTrades() {
-      try {
-        const res = await fetch("/api/trades");
-        trades = await res.json();
-        renderTable();
-        await updateLivePrices();
-      } catch (err) { console.error(err); }
+    async function fetchPrice(ticker){
+      try{
+        const res = await fetch(`/api/price/${ticker}`);
+        const data = await res.json();
+        return data.price ?? 0;
+      }catch{return 0;}
     }
 
-    function renderTable() {
-      table.innerHTML = trades.map((t, idx) => `
-        <tr data-idx="${idx}">
-          <td>${t.type}</td>
-          <td>${t.ticker}</td>
-          <td>$${t.premium.toFixed(2)}</td>
-          <td>$${t.strike.toFixed(2)}</td>
-          <td>${t.lots}</td>
-          <td>$${t.collateral.toFixed(2)}</td>
-          <td class="live">-</td>
-          <td class="itm">-</td>
-          <td class="pl">-</td>
-          <td>${t.date}</td>
-          <td><button class="btn btn-sm btn-danger removeBtn">Remove</button></td>
-        </tr>`).join("");
-
-      document.querySelectorAll(".removeBtn").forEach(btn => {
-        btn.onclick = async () => {
-          const idx = btn.closest("tr").dataset.idx;
-          const id = trades[idx].id;
-          await fetch(`/api/trade/${id}`, { method: "DELETE" });
-          trades.splice(idx, 1);
-          renderTable();
-          updateSummary();
-        }
-      });
-
-      updateSummary();
+    async function loadTrades(){
+      const res = await fetch("/api/trades");
+      trades = await res.json();
+      await loadHoldings();
+      await updateAll();
     }
 
-    function updateSummary() {
-      const totalPremium = trades.reduce((s, t) => s + t.premium, 0);
-      const totalInvestment = trades.reduce((s, t) => s + t.collateral, 0);
-      const overallProfit = trades.reduce((s, t) => s + (t.latestPL || 0), 0);
-      const annualized = totalInvestment ? ((totalPremium / totalInvestment) * 100).toFixed(2) : 0;
-      document.getElementById("totalPremium").textContent = totalPremium.toFixed(2);
-      document.getElementById("totalInvestment").textContent = totalInvestment.toFixed(2);
-      document.getElementById("annualizedReturn").textContent = annualized + "%";
-      document.getElementById("overallProfit").textContent = overallProfit.toFixed(2);
+    async function loadHoldings(){
+      const res = await fetch("/api/holdings");
+      manualHoldings = await res.json();
+      await updateManualPortfolio();
     }
 
-    form.addEventListener("submit", async e => {
+    async function updateAll(){
+      await updateTrades();
+      await updateManualPortfolio();
+    }
+
+    // ----- Add Trade -----
+    document.getElementById("tradeForm").addEventListener("submit", async e=>{
       e.preventDefault();
       const trade = {
         type: document.getElementById("type").value,
@@ -164,66 +212,125 @@
         strike: Number(document.getElementById("strike").value),
         lots: Number(document.getElementById("lots").value),
         premium: Number(document.getElementById("premium").value),
-        collateral: Number(document.getElementById("strike").value) * 100 * Number(document.getElementById("lots").value),
-        date: document.getElementById("date").value
+        date: document.getElementById("date").value,
+        collateral: Number(document.getElementById("strike").value) * 100 * Number(document.getElementById("lots").value)
       };
-      const res = await fetch("/api/trade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(trade)
-      });
+      const res = await fetch("/api/trade", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(trade)});
       trades.push(await res.json());
-      renderTable();
-      await updateLivePrices();
-      form.reset();
+      await updateAll();
+      e.target.reset();
     });
 
-    async function fetchYahooPrice(ticker) {
-      try {
-        const res = await fetch(`/api/price/${ticker}`);
-        const data = await res.json();
-        return data.regularMarketPrice || data.quoteResponse?.result?.[0]?.regularMarketPrice || null;
-      } catch { return null; }
+    // ----- Add Manual Holding -----
+    document.getElementById("holdingForm").addEventListener("submit", async e=>{
+      e.preventDefault();
+      const ticker = document.getElementById("holdingTicker").value.toUpperCase();
+      const entry = Number(document.getElementById("holdingEntry").value);
+      const lots = Number(document.getElementById("holdingLots").value);
+      const res = await fetch("/api/holding", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ticker,entry,lots})});
+      manualHoldings.push(await res.json());
+      await updateManualPortfolio();
+      e.target.reset();
+    });
+
+    function deleteHolding(id){
+      fetch(`/api/holding/${id}`, {method:"DELETE"}).then(()=>{
+        manualHoldings = manualHoldings.filter(h=>h.id!==id);
+        updateManualPortfolio();
+      });
     }
 
-    async function updateLivePrices() {
-      const rows = Array.from(document.querySelectorAll("#tradeTable tr"));
-      const updates = [];
-      for (let i = 0; i < trades.length; i++) {
-        const t = trades[i];
-        const row = rows[i];
-        if (!row) continue;
-        const live = await fetchYahooPrice(t.ticker);
-        if (live !== null) {
-          let itm = "-", pl = 0;
-          if (t.type === "CSP") {
-            itm = live < t.strike ? "YES" : "NO";
-            pl = t.premium * 100 * t.lots - Math.max(0, t.strike - live) * 100 * t.lots;
-          } else {
-            itm = live > t.strike ? "YES" : "NO";
-            pl = t.premium * 100 * t.lots - Math.max(0, live - t.strike) * 100 * t.lots;
+    async function updateTrades(){
+      const today = new Date();
+      let totalPremium=0, totalStock=0;
+      const currentPositions=[], tradeHistory=[];
+      for(let t of trades){
+        const price = await fetchPrice(t.ticker);
+        const expiry = new Date(t.date);
+        if(today < expiry){
+          let unrealized = t.premium*100*t.lots;
+          unrealized -= t.type==="CSP"?Math.max(0,t.strike-price)*100*t.lots:Math.max(0,price-t.strike)*100*t.lots;
+          currentPositions.push({...t, livePrice:price, unrealizedPL:unrealized});
+        } else {
+          t.expired = true;
+          let premiumProfit = t.premium*100*t.lots;
+          let stockProfit=0;
+          if(t.type==="CC" && price>t.strike){
+            stockProfit = (t.strike-(t.collateral/(100*t.lots)))*100*t.lots;
           }
-          t.latestPL = pl;
-          row.querySelector(".live").textContent = "$" + live.toFixed(2);
-          row.querySelector(".itm").textContent = itm;
-          const plCell = row.querySelector(".pl");
-          plCell.textContent = pl.toFixed(2);
-          plCell.className = "pl " + (pl >= 0 ? "pl-positive" : "pl-negative");
-
-          updates.push(fetch(`/api/trade/pl/${t.id}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ latestPL: pl })
-          }));
+          t.premiumProfit = premiumProfit;
+          t.stockProfit = stockProfit;
+          tradeHistory.push({...t, totalProfit: premiumProfit+stockProfit});
+          totalPremium += premiumProfit;
+          totalStock += stockProfit;
         }
       }
-      updateSummary();
-      await Promise.all(updates);
+
+      document.getElementById("totalPremium").textContent="$"+totalPremium.toFixed(2);
+      document.getElementById("totalStock").textContent="$"+totalStock.toFixed(2);
+      document.getElementById("overallProfit").textContent="$"+(totalPremium+totalStock).toFixed(2);
+
+      document.getElementById("currentPositions").innerHTML=currentPositions.map(t=>`
+        <tr>
+          <td>${t.type}</td>
+          <td>${t.ticker}</td>
+          <td>$${t.strike}</td>
+          <td>${t.lots}</td>
+          <td>$${t.premium}</td>
+          <td>$${t.collateral}</td>
+          <td>$${t.livePrice.toFixed(2)}</td>
+          <td>${t.type==="CSP"? (t.livePrice<t.strike?"YES":"NO") : (t.livePrice>t.strike?"YES":"NO")}</td>
+          <td class="${t.unrealizedPL>=0?'pl-positive':'pl-negative'}">$${t.unrealizedPL.toFixed(2)}</td>
+        </tr>`).join("");
+
+      document.getElementById("tradeHistory").innerHTML=tradeHistory.map(t=>`
+        <tr>
+          <td>${t.type}</td>
+          <td>${t.ticker}</td>
+          <td>$${t.strike}</td>
+          <td>${t.lots}</td>
+          <td class="${t.premiumProfit>=0?'pl-positive':'pl-negative'}">$${t.premiumProfit.toFixed(2)}</td>
+          <td>${t.type==="CC"? (t.stockProfit>=0?'<span class="stock-positive">$'+t.stockProfit.toFixed(2)+'</span>':'<span class="stock-negative">$'+t.stockProfit.toFixed(2)+'</span>'):'-'}</td>
+          <td class="${(t.premiumProfit+t.stockProfit)>=0?'pl-positive':'pl-negative'}">$${(t.premiumProfit+t.stockProfit).toFixed(2)}</td>
+          <td>${t.date}</td>
+        </tr>`).join("");
+
+      const tickerMap = {};
+      tradeHistory.forEach(t=>{
+        if(!tickerMap[t.ticker]) tickerMap[t.ticker]={premium:0, stock:0};
+        tickerMap[t.ticker].premium+=t.premiumProfit;
+        tickerMap[t.ticker].stock+=t.stockProfit;
+      });
+      const sorted = Object.entries(tickerMap).map(([ticker,v])=>({ticker, premium:v.premium, stock:v.stock, total:v.premium+v.stock}));
+      document.getElementById("tickerProfitTable").innerHTML=sorted.map(r=>`
+        <tr>
+          <td>${r.ticker}</td>
+          <td class="${r.premium>=0?'pl-positive':'pl-negative'}">$${r.premium.toFixed(2)}</td>
+          <td class="${r.stock>=0?'stock-positive':'stock-negative'}">$${r.stock.toFixed(2)}</td>
+          <td class="${r.total>=0?'pl-positive':'pl-negative'}">$${r.total.toFixed(2)}</td>
+        </tr>`).join("");
     }
 
-    refreshBtn.addEventListener("click", updateLivePrices);
+    async function updateManualPortfolio(){
+      const rows = await Promise.all(manualHoldings.map(async h=>{
+        const price = await fetchPrice(h.ticker);
+        const pl = (price-h.entry)*h.lots;
+        h.current = price;
+        h.pl = pl;
+        return h;
+      }));
+      document.getElementById("manualPortfolio").innerHTML=rows.map(h=>`
+        <tr>
+          <td>${h.ticker}</td>
+          <td>$${h.entry.toFixed(2)}</td>
+          <td>${h.lots}</td>
+          <td>$${h.current.toFixed(2)}</td>
+          <td class="${h.pl>=0?'stock-positive':'stock-negative'}">$${h.pl.toFixed(2)}</td>
+          <td><button class="btn btn-sm btn-danger" onclick="deleteHolding(${h.id})">Delete</button></td>
+        </tr>`).join("");
+    }
+
     loadTrades();
   </script>
 </body>
-
 </html>

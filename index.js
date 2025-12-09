@@ -5,35 +5,49 @@ import YahooFinance from "yahoo-finance2";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DB_FILE = path.join("./trades.json");
+
+const TRADES_FILE = path.join("./trades.json");
+const HOLDINGS_FILE = path.join("./holdings.json");
 
 app.use(express.json());
 app.use(express.static("public"));
 
+// ----- Load & Save Helpers -----
 let trades = [];
+let holdings = [];
 
-// Load trades from JSON
 function loadTrades() {
   try {
-    trades = JSON.parse(fs.readFileSync(DB_FILE, "utf-8") || "[]");
+    trades = JSON.parse(fs.readFileSync(TRADES_FILE, "utf-8") || "[]");
   } catch {
     trades = [];
   }
 }
 
-// Save trades to JSON
 function saveTrades() {
-  fs.writeFileSync(DB_FILE, JSON.stringify(trades, null, 2));
+  fs.writeFileSync(TRADES_FILE, JSON.stringify(trades, null, 2));
 }
 
-// Initialize
-loadTrades();
+function loadHoldings() {
+  try {
+    holdings = JSON.parse(fs.readFileSync(HOLDINGS_FILE, "utf-8") || "[]");
+  } catch {
+    holdings = [];
+  }
+}
 
-// APIs
+function saveHoldings() {
+  fs.writeFileSync(HOLDINGS_FILE, JSON.stringify(holdings, null, 2));
+}
+
+loadTrades();
+loadHoldings();
+
+// ----- Trade APIs -----
 app.get("/api/trades", (req, res) => res.json(trades));
 
 app.post("/api/trade", (req, res) => {
-  const trade = { id: Date.now(), ...req.body, latestPL: 0 };
+  const trade = { id: Date.now(), ...req.body };
   trades.push(trade);
   saveTrades();
   res.json(trade);
@@ -45,28 +59,33 @@ app.delete("/api/trade/:id", (req, res) => {
   res.json({ success: true });
 });
 
-app.post("/api/trade/pl/:id", (req, res) => {
-  const t = trades.find(tr => tr.id == req.params.id);
-  if (t) {
-    t.latestPL = req.body.latestPL;
-    saveTrades();
-    res.json({ success: true });
-  } else res.status(404).json({ error: "Trade not found" });
+// ----- Holdings APIs -----
+app.get("/api/holdings", (req, res) => res.json(holdings));
+
+app.post("/api/holding", (req, res) => {
+  const holding = { id: Date.now(), ...req.body };
+  holdings.push(holding);
+  saveHoldings();
+  res.json(holding);
 });
 
-// Yahoo Finance
+app.delete("/api/holding/:id", (req, res) => {
+  holdings = holdings.filter(h => h.id != req.params.id);
+  saveHoldings();
+  res.json({ success: true });
+});
+
+// ----- Yahoo Finance -----
 const yahooFinance = new YahooFinance();
 
 app.get("/api/price/:ticker", async (req, res) => {
   try {
     const ticker = req.params.ticker;
-    const quote = await yahooFinance.quote(ticker); 
-    // regularMarketPrice is directly on quote
+    const quote = await yahooFinance.quote(ticker);
     res.json({ price: quote.regularMarketPrice || 0 });
-  } catch (err) {
-    console.error("Yahoo fetch failed:", err.message);
-    res.json({ price: 0 }); // return 0 if error
+  } catch {
+    res.json({ price: 0 });
   }
 });
 
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
