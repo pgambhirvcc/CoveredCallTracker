@@ -1,91 +1,90 @@
 import express from "express";
-import fs from "fs";
-import path from "path";
+import mongoose from "mongoose";
 import YahooFinance from "yahoo-finance2";
+import path from "path";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const TRADES_FILE = path.join("./trades.json");
-const HOLDINGS_FILE = path.join("./holdings.json");
-
+// ----------------- Middleware -----------------
 app.use(express.json());
 app.use(express.static("public"));
 
-// ----- Load & Save Helpers -----
-let trades = [];
-let holdings = [];
+// ----------------- MongoDB -----------------
+mongoose.connect(process.env.MONGO_URI)
+.then(() => console.log("MongoDB connected"))
+.catch(err => console.error(err));
 
-function loadTrades() {
-  try {
-    trades = JSON.parse(fs.readFileSync(TRADES_FILE, "utf-8") || "[]");
-  } catch {
-    trades = [];
-  }
-}
+// ----------------- Models -----------------
+const tradeSchema = new mongoose.Schema({
+  type: { type: String, enum: ["CSP", "CC"], required: true },
+  ticker: { type: String, uppercase: true, required: true },
+  strike: Number,
+  lots: Number,
+  premium: Number,
+  date: String,
+  collateral: Number,
+  createdAt: { type: Date, default: Date.now }
+});
 
-function saveTrades() {
-  fs.writeFileSync(TRADES_FILE, JSON.stringify(trades, null, 2));
-}
+const holdingSchema = new mongoose.Schema({
+  ticker: { type: String, uppercase: true, required: true },
+  entry: Number,
+  lots: Number,
+  createdAt: { type: Date, default: Date.now }
+});
 
-function loadHoldings() {
-  try {
-    holdings = JSON.parse(fs.readFileSync(HOLDINGS_FILE, "utf-8") || "[]");
-  } catch {
-    holdings = [];
-  }
-}
+const Trade = mongoose.model("Trade", tradeSchema);
+const Holding = mongoose.model("Holding", holdingSchema);
 
-function saveHoldings() {
-  fs.writeFileSync(HOLDINGS_FILE, JSON.stringify(holdings, null, 2));
-}
+// ----------------- Trade APIs -----------------
+app.get("/api/trades", async (req, res) => {
+  const trades = await Trade.find().sort({ createdAt: -1 });
+  res.json(trades);
+});
 
-loadTrades();
-loadHoldings();
-
-// ----- Trade APIs -----
-app.get("/api/trades", (req, res) => res.json(trades));
-
-app.post("/api/trade", (req, res) => {
-  const trade = { id: Date.now(), ...req.body };
-  trades.push(trade);
-  saveTrades();
+app.post("/api/trade", async (req, res) => {
+  const trade = await Trade.create(req.body);
   res.json(trade);
 });
 
-app.delete("/api/trade/:id", (req, res) => {
-  trades = trades.filter(t => t.id != req.params.id);
-  saveTrades();
+app.delete("/api/trade/:id", async (req, res) => {
+  await Trade.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
-// ----- Holdings APIs -----
-app.get("/api/holdings", (req, res) => res.json(holdings));
+// ----------------- Holdings APIs -----------------
+app.get("/api/holdings", async (req, res) => {
+  const holdings = await Holding.find().sort({ createdAt: -1 });
+  res.json(holdings);
+});
 
-app.post("/api/holding", (req, res) => {
-  const holding = { id: Date.now(), ...req.body };
-  holdings.push(holding);
-  saveHoldings();
+app.post("/api/holding", async (req, res) => {
+  const holding = await Holding.create(req.body);
   res.json(holding);
 });
 
-app.delete("/api/holding/:id", (req, res) => {
-  holdings = holdings.filter(h => h.id != req.params.id);
-  saveHoldings();
+app.delete("/api/holding/:id", async (req, res) => {
+  await Holding.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
 
-// ----- Yahoo Finance -----
+// ----------------- Yahoo Finance -----------------
 const yahooFinance = new YahooFinance();
 
 app.get("/api/price/:ticker", async (req, res) => {
   try {
-    const ticker = req.params.ticker;
-    const quote = await yahooFinance.quote(ticker);
+    const quote = await yahooFinance.quote(req.params.ticker);
     res.json({ price: quote.regularMarketPrice || 0 });
   } catch {
     res.json({ price: 0 });
   }
 });
 
-app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+// ----------------- Start Server -----------------
+app.listen(PORT, () =>
+  console.log(`Server running at http://localhost:${PORT}`)
+);
