@@ -1,336 +1,276 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Wheel Strategy Tracker</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <style>
-    body { background-color: #f5f6fa; font-family: 'Segoe UI', sans-serif; color: #333; }
-    h1 { font-weight: 600; }
-    .summary-box { border-radius: 12px; padding: 15px; color: #333; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-    .section-title { margin-top:30px; margin-bottom:15px; font-weight:600; color:#555; }
-    table { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03); }
-    thead { background:#e9ecef; font-weight:600; }
-    th, td { vertical-align: middle !important; }
-    .pl-positive { color:#28a745; font-weight:600; }
-    .pl-negative { color:#dc3545; font-weight:600; }
-    .stock-positive { color:#0d6efd; font-weight:600; }
-    .stock-negative { color:#fd7e14; font-weight:600; }
-    .btn-primary { background-color:#007bff; border:none; }
-    .btn-primary:hover { background-color:#0069d9; }
-    input, select { border-radius:6px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wheel Strategy Tracker</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body { background:#f5f6fa; font-family:'Segoe UI',sans-serif; color:#333; }
+h1 { font-weight:600; }
+.summary-box { background:#fff; padding:15px; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.05); }
+.section-title { margin-top:30px; font-weight:600; color:#555; }
+table { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,.03); }
+thead { background:#e9ecef; font-weight:600; }
+th, td { vertical-align:middle !important; }
+.pl-positive { color:#28a745; font-weight:600; }
+.pl-negative { color:#dc3545; font-weight:600; }
+.stock-positive { color:#0d6efd; font-weight:600; }
+.stock-negative { color:#fd7e14; font-weight:600; }
+.btn-primary { background-color:#007bff; border:none; }
+.btn-primary:hover { background-color:#0069d9; }
+input, select { border-radius:6px; }
+</style>
 </head>
-
 <body class="p-4">
-  <div class="container">
-    <h1 class="text-center mb-4">Wheel Strategy Tracker</h1>
+<div class="container">
+<h1 class="text-center mb-4">Wheel Strategy Tracker</h1>
 
-    <!-- Add Trade Form -->
-    <div class="card p-3 mb-4 shadow-sm">
-      <h4>Add Trade</h4>
-      <form id="tradeForm">
-        <div class="row g-3">
-          <div class="col-md-3">
-            <label class="form-label">Type</label>
-            <select id="type" class="form-select" required>
-              <option value="CSP">Cash Secured Put</option>
-              <option value="CC">Covered Call</option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Ticker</label>
-            <input id="ticker" class="form-control" required />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Strike ($)</label>
-            <input type="number" id="strike" class="form-control" required />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Lots</label>
-            <input type="number" id="lots" class="form-control" required />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Premium ($)</label>
-            <input type="number" id="premium" class="form-control" step="0.01" required />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Expiry Date</label>
-            <input type="date" id="date" class="form-control" required />
-          </div>
-          <div class="col-md-3 d-flex align-items-end">
-            <button class="btn btn-primary w-100" type="submit">Add Trade</button>
-          </div>
-        </div>
-      </form>
+<!-- Add Trade Form -->
+<div class="card p-3 mb-4 shadow-sm">
+  <h4>Add Trade</h4>
+  <form id="tradeForm" class="row g-3">
+    <div class="col-md-2">
+      <label class="form-label">Type</label>
+      <select id="type" class="form-select" required>
+        <option value="CSP">Cash Secured Put</option>
+        <option value="CC">Covered Call</option>
+      </select>
     </div>
-
-    <!-- Current Holdings Form -->
-    <div class="card p-3 mb-4 shadow-sm">
-      <h4>Current Portfolio (Manual Entry)</h4>
-      <form id="holdingForm" class="row g-3">
-        <div class="col-md-3">
-          <label class="form-label">Ticker</label>
-          <input id="holdingTicker" class="form-control" required />
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Entry Price ($)</label>
-          <input type="number" id="holdingEntry" class="form-control" step="0.01" required />
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Quantity</label>
-          <input type="number" id="holdingLots" class="form-control" required />
-        </div>
-        <div class="col-md-3 d-flex align-items-end">
-          <button class="btn btn-primary w-100" type="submit">Add Holding</button>
-        </div>
-      </form>
+    <div class="col-md-2">
+      <label class="form-label">Ticker</label>
+      <input id="ticker" class="form-control" required />
     </div>
-
-    <!-- Summary Boxes -->
-    <div class="row text-center mb-4 g-3">
-      <div class="col-md-4 summary-box">
-        <h6>Total Premium Profit</h6>
-        <span id="totalPremium" class="fs-5">$0</span>
-      </div>
-      <div class="col-md-4 summary-box">
-        <h6>Total Stock Appreciation</h6>
-        <span id="totalStock" class="fs-5">$0</span>
-      </div>
-      <div class="col-md-4 summary-box">
-        <h6>Overall Profit</h6>
-        <span id="overallProfit" class="fs-5">$0</span>
-      </div>
+    <div class="col-md-2">
+      <label class="form-label">Strike ($)</label>
+      <input type="number" id="strike" class="form-control" required />
     </div>
+    <div class="col-md-2">
+      <label class="form-label">Lots</label>
+      <input type="number" id="lots" class="form-control" required />
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Premium ($)</label>
+      <input type="number" id="premium" class="form-control" step="0.01" required />
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Expiry Date</label>
+      <input type="date" id="date" class="form-control" required />
+    </div>
+    <div class="col-md-12 d-flex justify-content-end mt-2">
+      <button class="btn btn-primary" type="submit">Add Trade</button>
+    </div>
+  </form>
+</div>
 
-    <!-- Current Positions -->
-    <h4 class="section-title">Current Positions (Not Expired)</h4>
-    <table class="table table-striped shadow-sm mb-4">
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Ticker</th>
-          <th>Strike</th>
-          <th>Lots</th>
-          <th>Premium</th>
-          <th>Collateral</th>
-          <th>Live Price</th>
-          <th>ITM?</th>
-          <th>Unrealized P/L</th>
-        </tr>
-      </thead>
-      <tbody id="currentPositions"></tbody>
-    </table>
+<!-- Summary Boxes -->
+<div class="row text-center mb-4 g-3">
+  <div class="col-md-3 summary-box"><h6>Total Premium Profit</h6><span id="totalPremium">$0</span></div>
+  <div class="col-md-3 summary-box"><h6>Total Stock Appreciation</h6><span id="totalStock">$0</span></div>
+  <div class="col-md-3 summary-box"><h6>Overall Profit</h6><span id="overallProfit">$0</span></div>
+  <div class="col-md-3 summary-box"><h6>Weekly Return</h6><span id="weeklyReturn">0%</span></div>
+</div>
 
-    <!-- Current Portfolio Table (Manual) -->
-    <h4 class="section-title">Current Holdings (Manual)</h4>
-    <table class="table table-striped shadow-sm mb-4">
-      <thead>
-        <tr>
-          <th>Ticker</th>
-          <th>Entry Price</th>
-          <th>Quantity</th>
-          <th>Current Price</th>
-          <th>Unrealized P/L</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="manualPortfolio"></tbody>
-    </table>
+<!-- Weekly Chart -->
+<h4 class="section-title">Weekly Profit (CSP vs CC)</h4>
+<div class="summary-box mb-4">
+  <canvas id="weeklyProfitChart" height="120"></canvas>
+</div>
 
-    <!-- Trade History -->
-    <h4 class="section-title">Trade History (Expired)</h4>
-    <table class="table table-striped shadow-sm mb-4">
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Ticker</th>
-          <th>Strike</th>
-          <th>Lots</th>
-          <th>Premium Profit</th>
-          <th>Stock Profit</th>
-          <th>Total Profit</th>
-          <th>Expiry Date</th>
-        </tr>
-      </thead>
-      <tbody id="tradeHistory"></tbody>
-    </table>
+<!-- Current Positions -->
+<h4 class="section-title">Current Positions</h4>
+<table class="table table-striped mb-4">
+<thead>
+<tr>
+  <th>Type</th><th>Ticker</th><th>Strike</th><th>Lots</th>
+  <th>Premium</th><th>Collateral</th><th>Live Price</th><th>ITM?</th><th>Unrealized P/L</th>
+</tr>
+</thead>
+<tbody id="currentPositions"></tbody>
+</table>
 
-    <!-- Accumulation Table -->
-    <h4 class="section-title">Accumulated Profit by Ticker</h4>
-    <table class="table table-bordered shadow-sm mb-4">
-      <thead>
-        <tr>
-          <th>Ticker</th>
-          <th>Total Premium Profit</th>
-          <th>Total Stock Profit</th>
-          <th>Total Accumulated Profit</th>
-        </tr>
-      </thead>
-      <tbody id="tickerProfitTable"></tbody>
-    </table>
+<!-- Trade History -->
+<h4 class="section-title">Trade History (Expired)</h4>
+<table class="table table-striped mb-4">
+<thead>
+<tr>
+  <th>Type</th><th>Ticker</th><th>Strike</th><th>Lots</th>
+  <th>Premium Profit</th><th>Stock Profit</th><th>Total Profit</th><th>Expiry Date</th>
+</tr>
+</thead>
+<tbody id="tradeHistory"></tbody>
+</table>
 
-  </div>
+<!-- Accumulated Profit by Ticker -->
+<h4 class="section-title">Accumulated Profit by Ticker</h4>
+<table class="table table-bordered mb-4">
+<thead>
+<tr>
+  <th>Ticker</th><th>Total Premium Profit</th><th>Total Stock Profit</th><th>Total Accumulated Profit</th>
+</tr>
+</thead>
+<tbody id="tickerProfitTable"></tbody>
+</table>
+</div>
 
-  <script>
-    let trades = [], manualHoldings = [];
+<script>
+let trades = [], weeklyChart;
 
-    async function fetchPrice(ticker){
-      try{
-        const res = await fetch(`/api/price/${ticker}`);
-        const data = await res.json();
-        return data.price ?? 0;
-      }catch{return 0;}
+// DOM Elements
+const totalPremiumEl = document.getElementById("totalPremium");
+const totalStockEl = document.getElementById("totalStock");
+const overallProfitEl = document.getElementById("overallProfit");
+const currentPositionsEl = document.getElementById("currentPositions");
+const tradeHistoryEl = document.getElementById("tradeHistory");
+const tickerProfitEl = document.getElementById("tickerProfitTable");
+
+// Helpers
+async function fetchPrice(ticker){
+  try{
+    const r = await fetch(`/api/price/${ticker}`);
+    return (await r.json()).price || 0;
+  }catch{return 0;}
+}
+
+function getISOWeek(date){
+  const d = new Date(date);
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  const week1 = new Date(d.getFullYear(),0,4);
+  return `${d.getFullYear()}-W${String(1 + Math.round(((d-week1)/86400000 - 3 + (week1.getDay()+6)%7)/7)).padStart(2,"0")}`;
+}
+
+// Load trades
+async function loadTrades(){
+  const res = await fetch("/api/trades");
+  trades = await res.json();
+  await updateTrades();
+  buildWeeklyChart();
+}
+
+// Add Trade
+document.getElementById("tradeForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const trade = {
+    type: document.getElementById("type").value,
+    ticker: document.getElementById("ticker").value.toUpperCase(),
+    strike: Number(document.getElementById("strike").value),
+    lots: Number(document.getElementById("lots").value),
+    premium: Number(document.getElementById("premium").value),
+    date: document.getElementById("date").value,
+    collateral: Number(document.getElementById("strike").value)*100*Number(document.getElementById("lots").value),
+    createdAt: new Date()
+  };
+  const res = await fetch("/api/trade",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(trade)});
+  trades.push(await res.json());
+  await updateTrades();
+  buildWeeklyChart();
+  e.target.reset();
+});
+
+// Update Tables
+async function updateTrades(){
+  let totalPremium=0, totalStock=0;
+  const current=[], history=[];
+  for(const t of trades){
+    const price = await fetchPrice(t.ticker);
+    const expiry = new Date(t.date);
+    const premiumValue = t.premium*100*t.lots;
+    if(new Date()<expiry){
+      const unrealized = premiumValue - (t.type==="CSP"?Math.max(0,t.strike-price)*100*t.lots:Math.max(0,price-t.strike)*100*t.lots);
+      current.push({...t, price, unrealized});
+    } else {
+      let stockPL=0;
+      if(t.type==="CC" && price>t.strike) stockPL=(t.strike*100*t.lots)-t.collateral;
+      totalPremium+=premiumValue;
+      totalStock+=stockPL;
+      history.push({...t,premiumValue,stockPL});
     }
+  }
 
-    async function loadTrades(){
-      const res = await fetch("/api/trades");
-      trades = await res.json();
-      await loadHoldings();
-      await updateAll();
-    }
+  totalPremiumEl.textContent = `$${totalPremium.toFixed(2)}`;
+  totalStockEl.textContent = `$${totalStock.toFixed(2)}`;
+  overallProfitEl.textContent = `$${(totalPremium+totalStock).toFixed(2)}`;
 
-    async function loadHoldings(){
-      const res = await fetch("/api/holdings");
-      manualHoldings = await res.json();
-      await updateManualPortfolio();
-    }
+  currentPositionsEl.innerHTML = current.map(t=>`
+    <tr>
+      <td>${t.type}</td><td>${t.ticker}</td><td>$${t.strike}</td><td>${t.lots}</td>
+      <td>$${t.premium}</td><td>$${t.collateral}</td><td>$${t.price.toFixed(2)}</td>
+      <td>${t.type==="CSP"? (t.price<t.strike?"YES":"NO") : (t.price>t.strike?"YES":"NO")}</td>
+      <td class="${t.unrealized>=0?'pl-positive':'pl-negative'}">$${t.unrealized.toFixed(2)}</td>
+    </tr>`).join("");
 
-    async function updateAll(){
-      await updateTrades();
-      await updateManualPortfolio();
-    }
+  tradeHistoryEl.innerHTML = history.map(t=>`
+    <tr>
+      <td>${t.type}</td><td>${t.ticker}</td><td>$${t.strike}</td><td>${t.lots}</td>
+      <td class="${t.premiumValue>=0?'pl-positive':'pl-negative'}">$${t.premiumValue.toFixed(2)}</td>
+      <td>${t.type==="CC"? (t.stockPL>=0?'<span class="stock-positive">$'+t.stockPL.toFixed(2)+'</span>':'<span class="stock-negative">$'+t.stockPL.toFixed(2)+'</span>'):'-'}</td>
+      <td class="${(t.premiumValue+t.stockPL)>=0?'pl-positive':'pl-negative'}">$${(t.premiumValue+t.stockPL).toFixed(2)}</td>
+      <td>${t.date}</td>
+    </tr>`).join("");
 
-    // ----- Add Trade -----
-    document.getElementById("tradeForm").addEventListener("submit", async e=>{
-      e.preventDefault();
-      const trade = {
-        type: document.getElementById("type").value,
-        ticker: document.getElementById("ticker").value.toUpperCase(),
-        strike: Number(document.getElementById("strike").value),
-        lots: Number(document.getElementById("lots").value),
-        premium: Number(document.getElementById("premium").value),
-        date: document.getElementById("date").value,
-        collateral: Number(document.getElementById("strike").value) * 100 * Number(document.getElementById("lots").value)
-      };
-      const res = await fetch("/api/trade", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(trade)});
-      trades.push(await res.json());
-      await updateAll();
-      e.target.reset();
-    });
+  // Accumulated by ticker
+  const tickerMap={};
+  history.forEach(t=>{
+    if(!tickerMap[t.ticker]) tickerMap[t.ticker]={premium:0, stock:0};
+    tickerMap[t.ticker].premium+=t.premiumValue;
+    tickerMap[t.ticker].stock+=t.stockPL;
+  });
+  tickerProfitEl.innerHTML = Object.entries(tickerMap).map(([ticker,v])=>`
+    <tr>
+      <td>${ticker}</td>
+      <td class="${v.premium>=0?'pl-positive':'pl-negative'}">$${v.premium.toFixed(2)}</td>
+      <td class="${v.stock>=0?'stock-positive':'stock-negative'}">$${v.stock.toFixed(2)}</td>
+      <td class="${(v.premium+v.stock)>=0?'pl-positive':'pl-negative'}">$${(v.premium+v.stock).toFixed(2)}</td>
+    </tr>`).join("");
+}
 
-    // ----- Add Manual Holding -----
-    document.getElementById("holdingForm").addEventListener("submit", async e=>{
-      e.preventDefault();
-      const ticker = document.getElementById("holdingTicker").value.toUpperCase();
-      const entry = Number(document.getElementById("holdingEntry").value);
-      const lots = Number(document.getElementById("holdingLots").value);
-      const res = await fetch("/api/holding", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ticker,entry,lots})});
-      manualHoldings.push(await res.json());
-      await updateManualPortfolio();
-      e.target.reset();
-    });
+// Weekly Chart with ticker-level tooltip
+function buildWeeklyChart(){
+  const weekly={};
+  trades.forEach(t=>{
+    const week = getISOWeek(t.createdAt);
+    weekly[week] ??= {CSP:{},CC:{}};
+    if(!weekly[week][t.type][t.ticker]) weekly[week][t.type][t.ticker]=0;
+    weekly[week][t.type][t.ticker]+=t.premium*100*t.lots;
+  });
 
-    function deleteHolding(id){
-      fetch(`/api/holding/${id}`, {method:"DELETE"}).then(()=>{
-        manualHoldings = manualHoldings.filter(h=>h.id!==id);
-        updateManualPortfolio();
-      });
-    }
+  const labels = Object.keys(weekly);
+  const cspData = labels.map(w=>Object.values(weekly[w].CSP).reduce((a,b)=>a+b,0));
+  const ccData  = labels.map(w=>Object.values(weekly[w].CC).reduce((a,b)=>a+b,0));
 
-    async function updateTrades(){
-      const today = new Date();
-      let totalPremium=0, totalStock=0;
-      const currentPositions=[], tradeHistory=[];
-      for(let t of trades){
-        const price = await fetchPrice(t.ticker);
-        const expiry = new Date(t.date);
-        if(today < expiry){
-          let unrealized = t.premium*100*t.lots;
-          unrealized -= t.type==="CSP"?Math.max(0,t.strike-price)*100*t.lots:Math.max(0,price-t.strike)*100*t.lots;
-          currentPositions.push({...t, livePrice:price, unrealizedPL:unrealized});
-        } else {
-          t.expired = true;
-          let premiumProfit = t.premium*100*t.lots;
-          let stockProfit=0;
-          if(t.type==="CC" && price>t.strike){
-            stockProfit = (t.strike-(t.collateral/(100*t.lots)))*100*t.lots;
+  const cspDetails = labels.map(w=>weekly[w].CSP);
+  const ccDetails  = labels.map(w=>weekly[w].CC);
+
+  if(weeklyChart) weeklyChart.destroy();
+  const ctx = document.getElementById("weeklyProfitChart").getContext("2d");
+  weeklyChart = new Chart(ctx,{
+    type:"bar",
+    data:{
+      labels,
+      datasets:[
+        { label:"CSP", data:cspData, backgroundColor:"#0d6efd", barThickness:18 },
+        { label:"CC", data:ccData, backgroundColor:"#28a745", barThickness:18 }
+      ]
+    },
+    options:{
+      plugins:{
+        tooltip:{
+          callbacks:{
+            label: function(context){
+              const idx = context.dataIndex;
+              const type = context.dataset.label;
+              const details = type==="CSP"?cspDetails[idx]:ccDetails[idx];
+              return Object.entries(details).map(([ticker,val])=>`${ticker}: $${val.toFixed(2)}`);
+            }
           }
-          t.premiumProfit = premiumProfit;
-          t.stockProfit = stockProfit;
-          tradeHistory.push({...t, totalProfit: premiumProfit+stockProfit});
-          totalPremium += premiumProfit;
-          totalStock += stockProfit;
         }
       }
-
-      document.getElementById("totalPremium").textContent="$"+totalPremium.toFixed(2);
-      document.getElementById("totalStock").textContent="$"+totalStock.toFixed(2);
-      document.getElementById("overallProfit").textContent="$"+(totalPremium+totalStock).toFixed(2);
-
-      document.getElementById("currentPositions").innerHTML=currentPositions.map(t=>`
-        <tr>
-          <td>${t.type}</td>
-          <td>${t.ticker}</td>
-          <td>$${t.strike}</td>
-          <td>${t.lots}</td>
-          <td>$${t.premium}</td>
-          <td>$${t.collateral}</td>
-          <td>$${t.livePrice.toFixed(2)}</td>
-          <td>${t.type==="CSP"? (t.livePrice<t.strike?"YES":"NO") : (t.livePrice>t.strike?"YES":"NO")}</td>
-          <td class="${t.unrealizedPL>=0?'pl-positive':'pl-negative'}">$${t.unrealizedPL.toFixed(2)}</td>
-        </tr>`).join("");
-
-      document.getElementById("tradeHistory").innerHTML=tradeHistory.map(t=>`
-        <tr>
-          <td>${t.type}</td>
-          <td>${t.ticker}</td>
-          <td>$${t.strike}</td>
-          <td>${t.lots}</td>
-          <td class="${t.premiumProfit>=0?'pl-positive':'pl-negative'}">$${t.premiumProfit.toFixed(2)}</td>
-          <td>${t.type==="CC"? (t.stockProfit>=0?'<span class="stock-positive">$'+t.stockProfit.toFixed(2)+'</span>':'<span class="stock-negative">$'+t.stockProfit.toFixed(2)+'</span>'):'-'}</td>
-          <td class="${(t.premiumProfit+t.stockProfit)>=0?'pl-positive':'pl-negative'}">$${(t.premiumProfit+t.stockProfit).toFixed(2)}</td>
-          <td>${t.date}</td>
-        </tr>`).join("");
-
-      const tickerMap = {};
-      tradeHistory.forEach(t=>{
-        if(!tickerMap[t.ticker]) tickerMap[t.ticker]={premium:0, stock:0};
-        tickerMap[t.ticker].premium+=t.premiumProfit;
-        tickerMap[t.ticker].stock+=t.stockProfit;
-      });
-      const sorted = Object.entries(tickerMap).map(([ticker,v])=>({ticker, premium:v.premium, stock:v.stock, total:v.premium+v.stock}));
-      document.getElementById("tickerProfitTable").innerHTML=sorted.map(r=>`
-        <tr>
-          <td>${r.ticker}</td>
-          <td class="${r.premium>=0?'pl-positive':'pl-negative'}">$${r.premium.toFixed(2)}</td>
-          <td class="${r.stock>=0?'stock-positive':'stock-negative'}">$${r.stock.toFixed(2)}</td>
-          <td class="${r.total>=0?'pl-positive':'pl-negative'}">$${r.total.toFixed(2)}</td>
-        </tr>`).join("");
     }
+  });
+}
 
-    async function updateManualPortfolio(){
-      const rows = await Promise.all(manualHoldings.map(async h=>{
-        const price = await fetchPrice(h.ticker);
-        const pl = (price-h.entry)*h.lots;
-        h.current = price;
-        h.pl = pl;
-        return h;
-      }));
-      document.getElementById("manualPortfolio").innerHTML=rows.map(h=>`
-        <tr>
-          <td>${h.ticker}</td>
-          <td>$${h.entry.toFixed(2)}</td>
-          <td>${h.lots}</td>
-          <td>$${h.current.toFixed(2)}</td>
-          <td class="${h.pl>=0?'stock-positive':'stock-negative'}">$${h.pl.toFixed(2)}</td>
-          <td><button class="btn btn-sm btn-danger" onclick="deleteHolding(${h.id})">Delete</button></td>
-        </tr>`).join("");
-    }
-
-    loadTrades();
-  </script>
+loadTrades();
+</script>
 </body>
 </html>
